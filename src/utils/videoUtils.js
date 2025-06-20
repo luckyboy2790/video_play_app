@@ -1,41 +1,14 @@
 process.env.YTDL_NO_UPDATE = "true";
 
-const { PutObjectCommand } = require("@aws-sdk/client-s3");
-const { s3Client } = require("./s3-credentials");
-
 const ytdl = require("ytdl-core");
+const fs = require("fs")
 const { IgApiClient } = require("instagram-private-api");
 const axios = require("axios");
 const { TwitterApi } = require("twitter-api-v2");
-
-exports.uploadToS3 = async (file, fileName) => {
-  try {
-    const params = {
-      Bucket: process.env.AWS_BUCKET,
-      Key: `${fileName}`,
-      Body: file,
-      ContentType: "video/mp4",
-    };
-
-    const command = new PutObjectCommand(params);
-
-    const data = await s3Client.send(command);
-
-    console.log(data.$metadata.httpStatusCode);
-
-    if (data.$metadata.httpStatusCode !== 200) {
-      return;
-    }
-
-    let url = `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_DEFAULT_REGION}.amazonaws.com/${params.Key}`;
-
-    console.log(url);
-
-    return { url, key: params.Key };
-  } catch (err) {
-    console.error(err);
-  }
-};
+const { pipeline } = require('stream');
+const { promisify } = require('util');
+const { v4 } = require("uuid");
+const { uploadToS3 } = require("./uploadToS3");
 
 exports.extractVideoFromUrl = async (url) => {
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
@@ -51,28 +24,36 @@ exports.extractVideoFromUrl = async (url) => {
   }
 };
 
-function isValidYouTubeUrl(url) {
-  const regex = /^(https?:\/\/(?:www\.)?youtube\.com\/watch\?v=|https?:\/\/(?:www\.)?youtu\.be\/)[a-zA-Z0-9_-]+$/;
-  return regex.test(url);
-}
-
 async function extractVideoFromYouTube(url) {
   try {
-    if (!isValidYouTubeUrl(url)) {
-      throw new Error("Invalid YouTube URL");
-    }
+    const fileName = `${v4()}.mp4`;
+    const localFilePath = `./${fileName}`;
 
-    const videoStream = ytdl(url, { quality: "highest" });
-    const fileName = `${Date.now()}.mp4`;
+    await new Promise((resolve, reject) => {
+      ytdl(url, { quality: 'highest' })
+        .pipe(fs.createWriteStream(localFilePath))
+        .on('finish', resolve)
+        .on('error', reject);
+    });
 
-    const videoBuffer = await streamToBuffer(videoStream);
+    const videoBuffer = fs.createReadStream(localFilePath);
 
-    return {
-      videoBuffer,
-      fileName,
-    };
+    const videoData = await uploadToS3(videoBuffer, `test_videos/${fileName}`);
+
+    fs.unlink(localFilePath, (err) => {
+      if (err) {
+        console.error("Error deleting the local file:", err);
+      } else {
+        console.log("Local file deleted successfully.");
+      }
+    });
+
+    return videoData;
   } catch (error) {
-    console.error("Error extracting YouTube video:", error);
+    console.error("Error extracting YouTube video:", error.message);
+    if (error.message.includes("Could not extract functions")) {
+      throw new Error("Failed to extract video due to signature extraction issues from YouTube. Please try again later.");
+    }
     throw new Error("Error extracting YouTube video");
   }
 }
@@ -133,30 +114,16 @@ async function extractVideoFromFacebook(url) {
 
 async function extractVideoFromX(url) {
   try {
-    const twitterClient = new TwitterApi({
-      appKey: "your_twitter_app_key",
-      appSecret: "your_twitter_app_secret",
-      accessToken: "your_twitter_access_token",
-      accessSecret: "your_twitter_access_secret",
+    const streamPipeline = promisify(pipeline);
+
+    const response = await axios({
+      method: 'GET',
+      url: url,
+      responseType: 'stream',
     });
 
-    const tweetId = url.split("/status/")[1];
-    if (!tweetId) {
-      throw new Error("Invalid X (Twitter) video URL");
-    }
-
-    const tweet = await twitterClient.v2.singleTweet(tweetId);
-
-    const videoUrl = tweet.data.attachments.media_keys
-      ? tweet.includes.media[tweet.data.attachments.media_keys[0]].url
-      : null;
-
-    if (!videoUrl) {
-      throw new Error("No video found in this tweet");
-    }
-
-    const videoBuffer = await downloadVideoFromUrl(videoUrl);
-    const fileName = `${Date.now()}.mp4`;
+    const writer = fs.createWriteStream("/X_video.mp4");
+    await streamPipeline(response.data, writer);
 
     return {
       videoBuffer,
@@ -166,15 +133,6 @@ async function extractVideoFromX(url) {
     console.error("Error extracting X (Twitter) video:", error);
     throw new Error("Error extracting X (Twitter) video");
   }
-}
-
-function streamToBuffer(stream) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    stream.on("data", (chunk) => chunks.push(chunk));
-    stream.on("end", () => resolve(Buffer.concat(chunks)));
-    stream.on("error", reject);
-  });
 }
 
 async function downloadVideoFromUrl(videoUrl) {

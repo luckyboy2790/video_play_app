@@ -17,7 +17,6 @@ const UserModel = {
   async getById(id) {
     const query = "SELECT * FROM users WHERE id = $1";
     const result = await db.query(query, [id]);
-    console.log(result.rows);
     return result.rows;
   },
 

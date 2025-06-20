@@ -12,31 +12,23 @@ router.post("/", verifyToken, async (req, res) => {
     }
 
     const videoData = await extractVideoFromUrl(url);
-    const videoUrl = await uploadToS3(
-      videoData.videoBuffer,
-      videoData.fileName
-    );
 
-    console.log(videoData);
+    const playData = {
+      videoUrl: videoData.url,
+      formation,
+      play_type: type,
+      tags: [],
+      source: url,
+      source_type: "link",
+      submitted_by: req.user.id,
+      date_added: new Date(),
+    };
 
-    console.log(videoUrl);
-
-    // const playData = {
-    //   videoUrl,
-    //   formation,
-    //   type,
-    //   tags,
-    //   source,
-    //   source_type,
-    //   submitted_by,
-    //   date_added,
-    // };
-
-    // const result = await PlayModel.create(playData);
+    const result = await PlayModel.create(playData);
 
     res.status(201).json({
       message: "Play added successfully",
-      play: result.rows[0],
+      play: result,
     });
   } catch (error) {
     console.error("Error adding play:", error);

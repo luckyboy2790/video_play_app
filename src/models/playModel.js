@@ -28,6 +28,7 @@ const PlayModel = {
       submitted_by,
       date_added,
     ]);
+
     return result.rows[0];
   },
 
