@@ -15,10 +15,10 @@ const UserModel = {
   },
 
   async getById(id) {
-    const query =
-      "SELECT id, username, email, created_at FROM users WHERE id = $1";
+    const query = "SELECT * FROM users WHERE id = $1";
     const result = await db.query(query, [id]);
-    return result.rows[0];
+    console.log(result.rows);
+    return result.rows;
   },
 
   async getByEmail(email) {

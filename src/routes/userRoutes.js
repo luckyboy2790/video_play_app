@@ -4,19 +4,6 @@ const UserModel = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-const authenticate = (req, res, next) => {
-  try {
-    const token = req.headers.authorization.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userData = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      message: "Authentication failed",
-    });
-  }
-};
-
 router.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -91,39 +78,39 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.get("/profile", authenticate, async (req, res) => {
-  try {
-    const user = await UserModel.getById(req.userData.userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+// router.get("/profile", authenticate, async (req, res) => {
+//   try {
+//     const user = await UserModel.getById(req.userData.userId);
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
 
-    res.status(200).json({ user });
-  } catch (error) {
-    console.error("Profile fetch error:", error);
-    res
-      .status(500)
-      .json({ message: "Error fetching profile", error: error.message });
-  }
-});
+//     res.status(200).json({ user });
+//   } catch (error) {
+//     console.error("Profile fetch error:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Error fetching profile", error: error.message });
+//   }
+// });
 
-router.put("/profile", authenticate, async (req, res) => {
-  try {
-    const { username, email } = req.body;
-    const userId = req.userData.userId;
+// router.put("/profile", authenticate, async (req, res) => {
+//   try {
+//     const { username, email } = req.body;
+//     const userId = req.userData.userId;
 
-    const updatedUser = await UserModel.update(userId, { username, email });
+//     const updatedUser = await UserModel.update(userId, { username, email });
 
-    res.status(200).json({
-      message: "Profile updated successfully",
-      user: updatedUser,
-    });
-  } catch (error) {
-    console.error("Profile update error:", error);
-    res
-      .status(500)
-      .json({ message: "Error updating profile", error: error.message });
-  }
-});
+//     res.status(200).json({
+//       message: "Profile updated successfully",
+//       user: updatedUser,
+//     });
+//   } catch (error) {
+//     console.error("Profile update error:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Error updating profile", error: error.message });
+//   }
+// });
 
 module.exports = router;

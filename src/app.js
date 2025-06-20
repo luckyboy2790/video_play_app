@@ -4,7 +4,7 @@ const path = require("path");
 const app = express();
 
 const userRoutes = require("./routes/userRoutes");
-const videoRoutes = require("./routes/videoRoutes");
+const playRoutes = require("./routes/playRoutes");
 
 app.use(cors());
 app.use(express.json());
@@ -19,7 +19,7 @@ app.use((req, res, next) => {
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/users", userRoutes);
-app.use("/api/videos", videoRoutes);
+app.use("/api/plays", playRoutes);
 
 app.use((req, res, next) => {
   res.status(404).json({
