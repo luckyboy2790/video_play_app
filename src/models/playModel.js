@@ -32,36 +32,31 @@ const PlayModel = {
     return result.rows[0];
   },
 
-  async getAll(limit = 10, offset = 0) {
+  async getAll(whereClause, params) {
     const query = `
-      SELECT v.*, 
-             u.username as uploader_username,
-             COUNT(vp.id) as play_count
-      FROM videos v
-      LEFT JOIN users u ON v.user_id = u.id
-      LEFT JOIN video_plays vp ON v.id = vp.video_id
-      GROUP BY v.id, u.username
-      ORDER BY v.created_at DESC
-      LIMIT $1 OFFSET $2;
-    `;
+    SELECT p.*, u.*
+    FROM plays p
+    LEFT JOIN users u ON p.submitted_by = u.id
+    ${whereClause}
+    ORDER BY p.date_added DESC
+  `;
 
-    const result = await db.query(query, [limit, offset]);
+    const result = await db.query(query, params);
+
     return result.rows;
   },
 
-  async getById(id) {
+  async getById(userId, id) {
     const query = `
-      SELECT v.*,
-             u.username as uploader_username,
-             COUNT(vp.id) as play_count
-      FROM videos v
-      LEFT JOIN users u ON v.user_id = u.id
-      LEFT JOIN video_plays vp ON v.id = vp.video_id
-      WHERE v.id = $1
-      GROUP BY v.id, u.username;
+      SELECT p.*, u.*
+      FROM plays p
+      LEFT JOIN users u ON p.submitted_by = u.id
+      WHERE p.submitted_by = $1 AND p.id = $2
+      ORDER BY p.date_added DESC
     `;
 
-    const result = await db.query(query, [id]);
+    const result = await db.query(query, [userId, id]);
+
     return result.rows[0];
   },
 
