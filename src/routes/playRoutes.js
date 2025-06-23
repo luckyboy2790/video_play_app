@@ -90,6 +90,53 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+router.get("/fyp", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const filters = "WHERE p.submitted_by = $1";
+    const result = await PlayModel.getAll(filters, [userId]);
+
+    const formationCount = {};
+    const playTypeCount = {};
+
+    for (const play of result) {
+      const formation = play.formation;
+      const playType = play.play_type;
+
+      if (formation) {
+        formationCount[formation] = (formationCount[formation] || 0) + 1;
+      }
+
+      if (playType) {
+        playTypeCount[playType] = (playTypeCount[playType] || 0) + 1;
+      }
+    }
+
+    const getMostFrequent = (countObj) =>
+      Object.entries(countObj).reduce(
+        (max, entry) => (entry[1] > max[1] ? entry : max),
+        ["", 0]
+      )[0];
+
+    const mostUsedFormation = getMostFrequent(formationCount);
+    const mostUsedPlayType = getMostFrequent(playTypeCount);
+
+    res.status(200).json({
+      message: "FYP retrieved successfully",
+      most_used: {
+        formation: mostUsedFormation,
+        play_type: mostUsedPlayType,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting FYP:", error);
+    res
+      .status(500)
+      .json({ message: "Error getting FYP", error: error.message });
+  }
+});
+
 router.get("/:id", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
