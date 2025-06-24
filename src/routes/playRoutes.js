@@ -2,28 +2,17 @@ const router = require("express").Router();
 const verifyToken = require("../middleware/verifyToken");
 const PlayModel = require("../models/playModel");
 const { extractVideoFromUrl } = require("../utils/videoUtils");
+const { generateTagsFromCaption } = require("../utils/generateTagsFromCaption");
 
 router.post("/", verifyToken, async (req, res) => {
   try {
-    const { url, formation, type, tags } = req.body;
+    const { url, formation, type, caption } = req.body;
 
     if (!url || !formation || !type) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    let tagsArray = [];
-    if (tags) {
-      try {
-        tagsArray = JSON.parse(tags);
-        if (!Array.isArray(tagsArray)) {
-          return res.status(400).json({ message: "Tags must be an array" });
-        }
-      } catch (error) {
-        return res
-          .status(400)
-          .json({ message: "Invalid JSON format for tags" });
-      }
-    }
+    const tagsArray = generateTagsFromCaption(caption);
 
     const videoData = await extractVideoFromUrl(url);
 
