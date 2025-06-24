@@ -34,6 +34,50 @@ The first milestone involves:
 ├── .env                # Environment variables (Database connection details)
 ```
 
+---
+
+## Milestone 2: Play Endpoints + Video Upload Support
+
+### Endpoints
+
+* `POST /plays` — Accepts new play submission
+* `GET /plays` — Returns all plays
+* `GET /plays/:id` — Returns a single play
+* `GET /plays?formation=X` — Filters plays by formation
+* `GET /plays?play_type=Y` — Filters plays by play type
+
+### Video Uploading
+
+* `POST /upload` — Accepts MP4 video files or shared URLs
+* Stores MP4s to S3 and generates video URLs
+* Sets `source_type` as either `upload` or `link`
+* Saves metadata (tags, formation, type, etc.) to DB
+
+---
+
+## Milestone 3: Filtering, Playbook Access & Profile Insights
+
+### User Playbook
+
+* `POST /user_playbook` — Save a play to a user’s playbook
+* `GET /user_playbook?formation=X&playType=Y` — Retrieve all saved plays for a user
+
+### Filtering & Insights
+
+* Filtering by formation & play type supported in `GET /plays`
+* `GET /plays/fyp` — For You Page logic:
+
+  * Grouped saved plays using formations
+  * Get plays grouped via formations
+
+### Formation Diagrams
+
+* Supports static assets (PNG) per formation
+* Returns formation diagram for frontend display
+* *(Optional)* JSON format for interactive builder planned
+
+---
+
 ### Getting Started
 
 1. **Clone the repository:**
@@ -55,6 +99,17 @@ The first milestone involves:
    DB_USER=your_db_user
    DB_PASSWORD=your_db_password
    DB_NAME=video_play_app
+
+   PORT=5000
+
+   JWT_SECRET=your_jwt_secret
+
+   AWS_ACCESS_KEY_ID=
+   AWS_SECRET_ACCESS_KEY=
+   AWS_DEFAULT_REGION=
+   AWS_BUCKET=
+   AWS_USE_PATH_STYLE_ENDPOINT=
+
    ```
 
 4. **Run the server:**
