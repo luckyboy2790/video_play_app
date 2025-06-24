@@ -27,4 +27,40 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
+router.get("/", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { formation, playType } = req.query;
+
+    const result = await PlayBookModel.get(userId, {
+      formation,
+      playType,
+    });
+
+    if (formation || playType) {
+      return res.status(200).json({
+        message: "Filtered plays retrieved",
+        plays: result,
+      });
+    }
+
+    const grouped = result.reduce((acc, play) => {
+      const key = play.formation || "Unknown";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(play);
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      message: "Plays grouped by formation",
+      grouped_plays: grouped,
+    });
+  } catch (error) {
+    console.error("Error getting plays:", error);
+    res
+      .status(500)
+      .json({ message: "Error getting plays", error: error.message });
+  }
+});
+
 module.exports = router;
