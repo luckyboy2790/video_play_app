@@ -46,17 +46,32 @@ router.get("/", verifyToken, async (req, res) => {
       playType,
     });
 
+    const formatDiagramUrl = (formationName) => {
+      const formatted = (formationName || "Unknown")
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+      return `https://1st-and-10-uploads.s3.us-east-2.amazonaws.com/formation-diagrams/${formatted}.png`;
+    };
+
     if (formation || playType) {
+      const formatted = formation || result[0]?.formation || "Unknown";
       return res.status(200).json({
         message: "Filtered plays retrieved",
+        diagramUrl: formatDiagramUrl(formatted),
         plays: result,
       });
     }
 
     const grouped = result.reduce((acc, play) => {
       const key = play.formation || "Unknown";
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(play);
+      const diagramKey = key.toLowerCase().replace(/\s+/g, "_");
+      if (!acc[key]) {
+        acc[key] = {
+          diagramUrl: `https://1st-and-10-uploads.s3.us-east-2.amazonaws.com/formation-diagrams/${diagramKey}.png`,
+          plays: [],
+        };
+      }
+      acc[key].plays.push(play);
       return acc;
     }, {});
 
