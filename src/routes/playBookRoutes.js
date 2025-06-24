@@ -1,10 +1,19 @@
 const router = require("express").Router();
 const verifyToken = require("../middleware/verifyToken");
 const PlayBookModel = require("../models/playBookModel");
+const PlayModel = require("../models/playModel");
 
 router.post("/", verifyToken, async (req, res) => {
   try {
     const { play_id } = req.body;
+
+    const play = await PlayModel.getById(req.user.id, play_id);
+
+    if (!play) {
+      return res.status(404).json({
+        message: "Play not found",
+      });
+    }
 
     const playBookData = {
       user_id: req.user.id,
