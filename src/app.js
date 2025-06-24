@@ -5,6 +5,7 @@ const app = express();
 
 const userRoutes = require("./routes/userRoutes");
 const playRoutes = require("./routes/playRoutes");
+const playBookRoutes = require("./routes/playBookRoutes");
 
 app.use(cors());
 app.use(express.json());
@@ -20,6 +21,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/users", userRoutes);
 app.use("/api/plays", playRoutes);
+app.use("/api/user_playbook", playBookRoutes);
 
 app.use((req, res, next) => {
   res.status(404).json({
