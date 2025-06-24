@@ -1,14 +1,15 @@
 process.env.YTDL_NO_UPDATE = "true";
 
 const ytdl = require("ytdl-core");
-const fs = require("fs")
-const { IgApiClient } = require("instagram-private-api");
+const fs = require("fs");
 const axios = require("axios");
-const { TwitterApi } = require("twitter-api-v2");
-const { pipeline } = require('stream');
-const { promisify } = require('util');
 const { v4 } = require("uuid");
 const { uploadToS3 } = require("./uploadToS3");
+const { getFbVideoInfo } = require("fb-downloader-scrapper");
+const https = require("https");
+const path = require("path");
+const { downloadInstagramVideo } = require("speedydl");
+const { TwitterDL } = require("twitter-downloader");
 
 exports.extractVideoFromUrl = async (url) => {
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
@@ -30,10 +31,10 @@ async function extractVideoFromYouTube(url) {
     const localFilePath = `./${fileName}`;
 
     await new Promise((resolve, reject) => {
-      ytdl(url, { quality: 'highest' })
+      ytdl(url, { quality: "highest" })
         .pipe(fs.createWriteStream(localFilePath))
-        .on('finish', resolve)
-        .on('error', reject);
+        .on("finish", resolve)
+        .on("error", reject);
     });
 
     const videoBuffer = fs.createReadStream(localFilePath);
@@ -52,7 +53,9 @@ async function extractVideoFromYouTube(url) {
   } catch (error) {
     console.error("Error extracting YouTube video:", error.message);
     if (error.message.includes("Could not extract functions")) {
-      throw new Error("Failed to extract video due to signature extraction issues from YouTube. Please try again later.");
+      throw new Error(
+        "Failed to extract video due to signature extraction issues from YouTube. Please try again later."
+      );
     }
     throw new Error("Error extracting YouTube video");
   }
@@ -60,26 +63,46 @@ async function extractVideoFromYouTube(url) {
 
 async function extractVideoFromInstagram(url) {
   try {
-    const ig = new IgApiClient();
-    ig.state.generateDevice("your_instagram_username");
+    const igVideo = await downloadInstagramVideo(url);
 
-    await ig.account.login(
-      "your_instagram_username",
-      "your_instagram_password"
-    );
+    if (!igVideo.video || igVideo.video.length === 0) {
+      throw new Error("No video URL found in response.");
+    }
 
-    const mediaId = url.split("/")[4];
-    const media = await ig.media.info(mediaId);
+    const videoUrl = igVideo.video[0];
+    const fileName = `${v4()}.mp4`;
+    const outputPath = `./${fileName}`;
 
-    const videoUrl = media.items[0].video_versions[0].url;
+    const response = await axios.get(videoUrl, {
+      responseType: "stream",
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "*/*",
+      },
+      maxRedirects: 5,
+    });
 
-    const videoBuffer = await downloadVideoFromUrl(videoUrl);
-    const fileName = `${Date.now()}.mp4`;
+    const writer = fs.createWriteStream(outputPath);
+    response.data.pipe(writer);
 
-    return {
-      videoBuffer,
-      fileName,
-    };
+    await new Promise((resolve, reject) => {
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
+
+    const videoBuffer = fs.createReadStream(outputPath);
+    const s3Key = `test_videos/${fileName}`;
+    const videoData = await uploadToS3(videoBuffer, s3Key);
+
+    fs.unlink(outputPath, (err) => {
+      if (err) {
+        console.error("Error deleting the local file:", err);
+      } else {
+        console.log("Local file deleted successfully.");
+      }
+    });
+
+    return videoData;
   } catch (error) {
     console.error("Error extracting Instagram video:", error);
     throw new Error("Error extracting Instagram video");
@@ -88,24 +111,37 @@ async function extractVideoFromInstagram(url) {
 
 async function extractVideoFromFacebook(url) {
   try {
-    const videoId = url.match(/(?:videos\/)(\d+)/);
-    if (!videoId || !videoId[1]) {
-      throw new Error("Invalid Facebook video URL");
-    }
+    const info = await getFbVideoInfo(url);
+    const videoUrl = info.hd || info.sd;
+    const filename =
+      info.title.replace(/[^a-z0-9]/gi, "_").slice(0, 100) + ".mp4";
+    const filePath = path.join("./", filename);
 
-    const accessToken = "your_facebook_access_token";
-    const graphUrl = `https://graph.facebook.com/v12.0/${videoId[1]}?fields=source&access_token=${accessToken}`;
+    const videoData = await new Promise((resolve, reject) => {
+      https
+        .get(videoUrl, (res) => {
+          if (res.statusCode !== 200)
+            return reject(new Error(`Bad status: ${res.statusCode}`));
+          const file = fs.createWriteStream(filePath);
+          res.pipe(file);
+          file.on("finish", () => {
+            file.close();
+            console.log("✅ Downloaded to", filePath);
+            resolve(filePath);
+          });
+        })
+        .on("error", reject);
+    });
 
-    const response = await axios.get(graphUrl);
-    const videoUrl = response.data.source;
+    const videoBuffer = fs.createReadStream(videoData);
+    const s3Key = `test_videos/${filename}`;
+    const uploadResult = await uploadToS3(videoBuffer, s3Key);
 
-    const videoBuffer = await downloadVideoFromUrl(videoUrl);
-    const fileName = `${Date.now()}.mp4`;
+    fs.unlink(videoData, (err) => {
+      if (err) console.error("Failed to delete local file:", err);
+    });
 
-    return {
-      videoBuffer,
-      fileName,
-    };
+    return uploadResult;
   } catch (error) {
     console.error("Error extracting Facebook video:", error);
     throw new Error("Error extracting Facebook video");
@@ -114,38 +150,45 @@ async function extractVideoFromFacebook(url) {
 
 async function extractVideoFromX(url) {
   try {
-    const streamPipeline = promisify(pipeline);
+    const result = await TwitterDL(url);
 
-    const response = await axios({
-      method: 'GET',
-      url: url,
-      responseType: 'stream',
-    });
+    if (
+      result.status === "success" &&
+      result.result.media &&
+      result.result.media[0].type === "video"
+    ) {
+      const videoUrl = result.result.media[0].videos[0].url;
+      const fileName = "twitter_video_" + Date.now() + ".mp4";
+      const outputPath = path.join("./", fileName);
 
-    const writer = fs.createWriteStream("/X_video.mp4");
-    await streamPipeline(response.data, writer);
+      const response = await axios({
+        method: "GET",
+        url: videoUrl,
+        responseType: "stream",
+      });
 
-    return {
-      videoBuffer,
-      fileName,
-    };
+      const writer = fs.createWriteStream(outputPath);
+      response.data.pipe(writer);
+
+      await new Promise((resolve, reject) => {
+        writer.on("finish", resolve);
+        writer.on("error", reject);
+      });
+
+      const videoBuffer = fs.createReadStream(outputPath);
+      const s3Key = `test_videos/${fileName}`;
+      const uploadResult = await uploadToS3(videoBuffer, s3Key);
+
+      fs.unlink(outputPath, (err) => {
+        if (err) console.error("Failed to delete local file:", err);
+      });
+
+      return uploadResult;
+    } else {
+      throw new Error("Failed to retrieve video URL");
+    }
   } catch (error) {
     console.error("Error extracting X (Twitter) video:", error);
     throw new Error("Error extracting X (Twitter) video");
-  }
-}
-
-async function downloadVideoFromUrl(videoUrl) {
-  try {
-    const response = await axios({
-      method: "get",
-      url: videoUrl,
-      responseType: "arraybuffer",
-    });
-
-    return Buffer.from(response.data);
-  } catch (error) {
-    console.error("Error downloading video from URL:", error);
-    throw new Error("Error downloading video from URL");
   }
 }
