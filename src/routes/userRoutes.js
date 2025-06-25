@@ -3,6 +3,7 @@ const router = express.Router();
 const UserModel = require("../models/userModel");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const verifyToken = require("../middleware/verifyToken");
 
 router.post("/register", async (req, res) => {
   try {
@@ -78,21 +79,21 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// router.get("/profile", authenticate, async (req, res) => {
-//   try {
-//     const user = await UserModel.getById(req.userData.userId);
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
+router.get("/profile", verifyToken, async (req, res) => {
+  try {
+    const user = await UserModel.getById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-//     res.status(200).json({ user });
-//   } catch (error) {
-//     console.error("Profile fetch error:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Error fetching profile", error: error.message });
-//   }
-// });
+    res.status(200).json({ user });
+  } catch (error) {
+    console.error("Profile fetch error:", error);
+    res
+      .status(500)
+      .json({ message: "Error fetching profile", error: error.message });
+  }
+});
 
 // router.put("/profile", authenticate, async (req, res) => {
 //   try {

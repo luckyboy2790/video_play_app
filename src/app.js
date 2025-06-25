@@ -7,7 +7,12 @@ const userRoutes = require("./routes/userRoutes");
 const playRoutes = require("./routes/playRoutes");
 const playBookRoutes = require("./routes/playBookRoutes");
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:8080",
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.use(express.urlencoded({ extended: true }));
