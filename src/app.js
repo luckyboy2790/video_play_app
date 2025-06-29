@@ -9,7 +9,7 @@ const playBookRoutes = require("./routes/playBookRoutes");
 
 app.use(
   cors({
-    origin: "http://localhost:8080",
+    origin:[ "http://localhost:8080"],
     credentials: true,
   })
 );

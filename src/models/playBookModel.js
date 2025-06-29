@@ -57,6 +57,33 @@ const PlayBookModel = {
     const result = await db.query(query, values);
     return result.rows;
   },
+
+  async getByField(playId) {
+    const query = `
+      SELECT 
+        up.*,
+        p.id AS play_id,
+        p.video_url,
+        p.formation,
+        p.play_type,
+        p.tags,
+        p.source,
+        p.source_type,
+        p.date_added,
+        u.id AS user_id,
+        u.username,
+        u.email,
+        u.created_at AS user_created_at,
+        u.updated_at AS user_updated_at
+      FROM user_playbook up
+      JOIN plays p ON up.play_id = p.id
+      JOIN users u ON up.user_id = u.id
+      WHERE up.play_id = $1
+      ORDER BY up.saved_at DESC;
+    `;
+    const result = await db.query(query, [playId]);
+    return result.rows;
+  },
 };
 
 module.exports = PlayBookModel;

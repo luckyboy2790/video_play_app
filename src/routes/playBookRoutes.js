@@ -15,6 +15,14 @@ router.post("/", verifyToken, async (req, res) => {
       });
     }
 
+    const playbook = await PlayBookModel.getByField(play_id);
+
+    if (playbook.length > 0) {
+      return res.status(409).json({
+        message: "Play is already saved",
+      });
+    }
+
     const playBookData = {
       user_id: req.user.id,
       play_id,
