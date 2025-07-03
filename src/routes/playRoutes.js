@@ -50,12 +50,12 @@ router.get("/", verifyToken, async (req, res) => {
     const filters = [];
     const params = [userId];
 
-    if (formation) {
+    if (formation && formation !== "null") {
       filters.push("p.formation = $" + (params.length + 1));
       params.push(formation);
     }
 
-    if (play_type) {
+    if (play_type && play_type !== "null") {
       filters.push("p.play_type = $" + (params.length + 1));
       params.push(play_type);
     }
