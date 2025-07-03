@@ -79,6 +79,32 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
+router.get("/video_of_day", verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const filters = [];
+    const params = [userId];
+
+    const whereClause =
+      filters.length > 0
+        ? "WHERE p.submitted_by = $1 AND " + filters.join(" AND ")
+        : "WHERE p.submitted_by = $1";
+
+    const result = await PlayModel.getRandom(whereClause, params);
+
+    res.status(200).json({
+      message: "Random play retrieved",
+      play: result[0] || null,
+    });
+  } catch (error) {
+    console.error("Error getting random play:", error);
+    res
+      .status(500)
+      .json({ message: "Error getting random play", error: error.message });
+  }
+});
+
 router.get("/fyp", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;

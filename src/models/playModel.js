@@ -60,6 +60,34 @@ const PlayModel = {
     return result.rows;
   },
 
+  async getRandom(whereClause, params) {
+    const query = `
+      SELECT 
+        p.id,
+        p.video_url,
+        p.formation,
+        p.play_type,
+        p.tags,
+        p.source,
+        p.source_type,
+        p.submitted_by,
+        p.date_added,
+        u.id AS user_id,
+        u.username,
+        u.email,
+        u.created_at AS user_created_at,
+        u.updated_at AS user_updated_at
+      FROM plays p
+      LEFT JOIN users u ON p.submitted_by = u.id
+      ${whereClause}
+      ORDER BY RANDOM()
+      LIMIT 1
+    `;
+
+    const result = await db.query(query, params);
+    return result.rows;
+  },
+
   async getById(userId, id) {
     const query = `
       SELECT p.*, u.*
