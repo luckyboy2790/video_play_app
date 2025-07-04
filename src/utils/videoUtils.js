@@ -8,7 +8,7 @@ const { uploadToS3 } = require("./uploadToS3");
 const { getFbVideoInfo } = require("fb-downloader-scrapper");
 const https = require("https");
 const path = require("path");
-const { downloadInstagramVideo } = require("speedydl");
+const { downloadInstagramVideo, downloadYouTubeVideo } = require("speedydl");
 const { TwitterDL } = require("twitter-downloader");
 
 exports.extractVideoFromUrl = async (url) => {
@@ -27,21 +27,40 @@ exports.extractVideoFromUrl = async (url) => {
 
 async function extractVideoFromYouTube(url) {
   try {
-    const fileName = `${v4()}.mp4`;
-    const localFilePath = `./${fileName}`;
+    const cleanedUrl = url.split("&")[0];
 
-    await new Promise((resolve, reject) => {
-      ytdl(url, { quality: "highest" })
-        .pipe(fs.createWriteStream(localFilePath))
-        .on("finish", resolve)
-        .on("error", reject);
+    const video = await downloadYouTubeVideo(cleanedUrl);
+
+    if (!video.video || video.video.length === 0) {
+      throw new Error("No video URL found in response.");
+    }
+
+    const videoUrl = video.video[0];
+    const fileName = `${v4()}.mp4`;
+    const outputPath = `./${fileName}`;
+
+    const response = await axios.get(videoUrl, {
+      responseType: "stream",
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "*/*",
+      },
+      maxRedirects: 5,
     });
 
-    const videoBuffer = fs.createReadStream(localFilePath);
+    const writer = fs.createWriteStream(outputPath);
+    response.data.pipe(writer);
 
-    const videoData = await uploadToS3(videoBuffer, `test_videos/${fileName}`);
+    await new Promise((resolve, reject) => {
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
 
-    fs.unlink(localFilePath, (err) => {
+    const videoBuffer = fs.createReadStream(outputPath);
+    const s3Key = `test_videos/${fileName}`;
+    const videoData = await uploadToS3(videoBuffer, s3Key);
+
+    fs.unlink(outputPath, (err) => {
       if (err) {
         console.error("Error deleting the local file:", err);
       } else {
@@ -51,13 +70,8 @@ async function extractVideoFromYouTube(url) {
 
     return videoData;
   } catch (error) {
-    console.error("Error extracting YouTube video:", error.message);
-    if (error.message.includes("Could not extract functions")) {
-      throw new Error(
-        "Failed to extract video due to signature extraction issues from YouTube. Please try again later."
-      );
-    }
-    throw new Error("Error extracting YouTube video");
+    console.error("Error extracting Youtube video:", error);
+    throw new Error("Error extracting Youtube video");
   }
 }
 
