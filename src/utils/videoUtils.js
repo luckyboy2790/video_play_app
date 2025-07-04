@@ -27,13 +27,15 @@ exports.extractVideoFromUrl = async (url) => {
 
 async function extractVideoFromYouTube(url) {
   try {
-    const igVideo = await downloadYouTubeVideo(url);
+    console.log(url);
 
-    if (!igVideo.video || igVideo.video.length === 0) {
+    const video = await downloadYouTubeVideo(url);
+
+    if (!video.video || video.video.length === 0) {
       throw new Error("No video URL found in response.");
     }
 
-    const videoUrl = igVideo.video[0];
+    const videoUrl = video.video[0];
     const fileName = `${v4()}.mp4`;
     const outputPath = `./${fileName}`;
 
@@ -68,8 +70,8 @@ async function extractVideoFromYouTube(url) {
 
     return videoData;
   } catch (error) {
-    console.error("Error extracting Instagram video:", error);
-    throw new Error("Error extracting Instagram video");
+    console.error("Error extracting Youtube video:", error);
+    throw new Error("Error extracting Youtube video");
   }
 }
 
