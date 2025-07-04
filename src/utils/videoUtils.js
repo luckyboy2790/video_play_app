@@ -27,9 +27,9 @@ exports.extractVideoFromUrl = async (url) => {
 
 async function extractVideoFromYouTube(url) {
   try {
-    console.log(url);
+    const cleanedUrl = url.split("&")[0];
 
-    const video = await downloadYouTubeVideo(url);
+    const video = await downloadYouTubeVideo(cleanedUrl);
 
     if (!video.video || video.video.length === 0) {
       throw new Error("No video URL found in response.");
