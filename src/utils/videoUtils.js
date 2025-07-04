@@ -1,6 +1,5 @@
 process.env.YTDL_NO_UPDATE = "true";
 
-const ytdl = require("ytdl-core");
 const fs = require("fs");
 const axios = require("axios");
 const { v4 } = require("uuid");
@@ -29,7 +28,11 @@ async function extractVideoFromYouTube(url) {
   try {
     const cleanedUrl = url.split("&")[0];
 
+    console.log(cleanedUrl);
+
     const video = await downloadYouTubeVideo(cleanedUrl);
+
+    console.log("YouTube video response:", video);
 
     if (!video.video || video.video.length === 0) {
       throw new Error("No video URL found in response.");
