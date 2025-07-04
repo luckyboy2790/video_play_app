@@ -9,7 +9,10 @@ const playBookRoutes = require("./routes/playBookRoutes");
 
 app.use(
   cors({
-    origin:[ "http://localhost:8080"],
+    origin: [
+      "http://localhost:8080",
+      "https://video-play-app-frontend.vercel.app/",
+    ],
     credentials: true,
   })
 );
