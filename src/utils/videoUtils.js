@@ -38,7 +38,7 @@ async function extractVideoFromYouTube(url) {
       throw new Error("No video URL found in response.");
     }
 
-    const videoUrl = video.video[0];
+    const videoUrl = video.video;
     const fileName = `${v4()}.mp4`;
     const outputPath = `./${fileName}`;
 
