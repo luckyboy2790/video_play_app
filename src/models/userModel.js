@@ -48,6 +48,19 @@ const UserModel = {
     const result = await db.query(query, [username, email, id]);
     return result.rows[0];
   },
+
+  async updatePassword(id, password) {
+    const query = `
+      UPDATE users
+      SET password_hash = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING id, password_hash, updated_at;
+    `;
+
+    const result = await db.query(query, [password, id]);
+    return result.rows[0];
+  },
 };
 
 module.exports = UserModel;

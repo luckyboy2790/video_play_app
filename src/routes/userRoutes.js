@@ -95,23 +95,45 @@ router.get("/profile", verifyToken, async (req, res) => {
   }
 });
 
-// router.put("/profile", authenticate, async (req, res) => {
-//   try {
-//     const { username, email } = req.body;
-//     const userId = req.userData.userId;
+router.post("/update", verifyToken, async (req, res) => {
+  try {
+    const { username, email } = req.body;
+    const userId = req.user.id;
 
-//     const updatedUser = await UserModel.update(userId, { username, email });
+    const updatedUser = await UserModel.update(userId, { username, email });
 
-//     res.status(200).json({
-//       message: "Profile updated successfully",
-//       user: updatedUser,
-//     });
-//   } catch (error) {
-//     console.error("Profile update error:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Error updating profile", error: error.message });
-//   }
-// });
+    res.status(200).json({
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Profile update error:", error);
+    res
+      .status(500)
+      .json({ message: "Error updating profile", error: error.message });
+  }
+});
+
+router.post("/update-password", verifyToken, async (req, res) => {
+  try {
+    const { password } = req.body;
+    const userId = req.user.id;
+
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(password, salt);
+
+    const updatedUser = await UserModel.updatePassword(userId, password_hash);
+
+    res.status(200).json({
+      message: "Password updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Password update error:", error);
+    res
+      .status(500)
+      .json({ message: "Error updating password", error: error.message });
+  }
+})
 
 module.exports = router;
