@@ -17,11 +17,11 @@ CREATE TABLE users (
 -- Plays table
 CREATE TABLE plays (
   id SERIAL PRIMARY KEY,
-  video_url VARCHAR(255) NOT NULL,
+  video_url TEXT NOT NULL,
   formation VARCHAR(255),
   play_type VARCHAR(255),
   tags TEXT[],
-  source VARCHAR(255),
+  source TEXT,
   source_type VARCHAR(50) CHECK (source_type IN ('upload', 'link')),
   submitted_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   date_added TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

@@ -23,7 +23,7 @@ exports.extractVideoFromUrl = async (url) => {
   } else if (url.includes("twitter.com") || url.includes("x.com")) {
     return await extractVideoFromX(url);
   } else {
-    throw new Error("Unsupported video platform");
+    return await extractVideoFromYouTube(url);
   }
 };
 
@@ -81,46 +81,14 @@ exports.extractVideoFromUrl = async (url) => {
 //   }
 // }
 
-async function extractVideoFromYouTube(url) {
+async function extractVideoFromYouTube(downloadUrl) {
   try {
-    console.log(RAPID_API_HOST, RAPID_API_KEY);
-    const videoIdMatch = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
-    if (!videoIdMatch) throw new Error("Invalid YouTube URL");
-    const videoId = videoIdMatch[1];
-
-    const apiResponse = await new Promise((resolve, reject) => {
-      const options = {
-        method: "GET",
-        hostname: RAPID_API_HOST,
-        path: `/dl?id=${videoId}`,
-        headers: {
-          "x-rapidapi-key": RAPID_API_KEY,
-          "x-rapidapi-host": RAPID_API_HOST,
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        const chunks = [];
-        res.on("data", (chunk) => chunks.push(chunk));
-        res.on("end", () => {
-          try {
-            const json = JSON.parse(Buffer.concat(chunks).toString());
-            resolve(json);
-          } catch (err) {
-            reject(new Error("Failed to parse API response"));
-          }
-        });
-      });
-
-      req.on("error", reject);
-      req.end();
-    });
-
-    const downloadUrl = apiResponse?.formats?.[0]?.url;
-    if (!downloadUrl) throw new Error("No video URL found in formats.");
+    if (!downloadUrl.startsWith("http")) {
+      throw new Error("Invalid download URL");
+    }
 
     const fileName = `${v4()}.mp4`;
-    const outputPath = path.join(fileName);
+    const outputPath = path.join("", fileName);
 
     const videoRes = await axios.get(downloadUrl, {
       responseType: "stream",
@@ -129,6 +97,7 @@ async function extractVideoFromYouTube(url) {
 
     const writer = fs.createWriteStream(outputPath);
     videoRes.data.pipe(writer);
+
     await new Promise((resolve, reject) => {
       writer.on("finish", resolve);
       writer.on("error", reject);
@@ -139,10 +108,11 @@ async function extractVideoFromYouTube(url) {
     const uploadResult = await uploadToS3(videoStream, s3Key);
 
     fs.unlink(outputPath, () => {});
+
     return uploadResult;
   } catch (error) {
-    console.error("Error extracting YouTube video:", error);
-    throw new Error("YouTube download failed");
+    console.error("Error handling downloaded video URL:", error);
+    throw new Error("Video handling failed");
   }
 }
 
