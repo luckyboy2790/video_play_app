@@ -83,6 +83,7 @@ exports.extractVideoFromUrl = async (url) => {
 
 async function extractVideoFromYouTube(url) {
   try {
+    console.log(RAPID_API_HOST, RAPID_API_KEY);
     const videoIdMatch = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
     if (!videoIdMatch) throw new Error("Invalid YouTube URL");
     const videoId = videoIdMatch[1];
