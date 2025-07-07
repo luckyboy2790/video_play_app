@@ -10,6 +10,9 @@ const path = require("path");
 const { downloadInstagramVideo, downloadYouTubeVideo } = require("speedydl");
 const { TwitterDL } = require("twitter-downloader");
 
+const RAPID_API_KEY = process.env.RAPID_API_KEY;
+const RAPID_API_HOST = "ytstream-download-youtube-videos.p.rapidapi.com";
+
 exports.extractVideoFromUrl = async (url) => {
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
     return await extractVideoFromYouTube(url);
@@ -24,57 +27,121 @@ exports.extractVideoFromUrl = async (url) => {
   }
 };
 
+// async function extractVideoFromYouTube(url) {
+//   try {
+//     const cleanedUrl = url.split("&")[0];
+
+//     console.log(cleanedUrl);
+
+//     const video = await downloadYouTubeVideo(cleanedUrl);
+
+//     console.log("YouTube video response:", video);
+
+//     if (!video.video || video.video.length === 0) {
+//       throw new Error("No video URL found in response.");
+//     }
+
+//     const videoUrl = video.video;
+//     const fileName = `${v4()}.mp4`;
+//     const outputPath = `./${fileName}`;
+
+//     const response = await axios.get(videoUrl, {
+//       responseType: "stream",
+//       headers: {
+//         "User-Agent": "Mozilla/5.0",
+//         Accept: "*/*",
+//       },
+//       maxRedirects: 5,
+//     });
+
+//     const writer = fs.createWriteStream(outputPath);
+//     response.data.pipe(writer);
+
+//     await new Promise((resolve, reject) => {
+//       writer.on("finish", resolve);
+//       writer.on("error", reject);
+//     });
+
+//     const videoBuffer = fs.createReadStream(outputPath);
+//     const s3Key = `test_videos/${fileName}`;
+//     const videoData = await uploadToS3(videoBuffer, s3Key);
+
+//     fs.unlink(outputPath, (err) => {
+//       if (err) {
+//         console.error("Error deleting the local file:", err);
+//       } else {
+//         console.log("Local file deleted successfully.");
+//       }
+//     });
+
+//     return videoData;
+//   } catch (error) {
+//     console.error("Error extracting Youtube video:", error);
+//     throw new Error("Error extracting Youtube video");
+//   }
+// }
+
 async function extractVideoFromYouTube(url) {
   try {
-    const cleanedUrl = url.split("&")[0];
+    const videoIdMatch = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/);
+    if (!videoIdMatch) throw new Error("Invalid YouTube URL");
+    const videoId = videoIdMatch[1];
 
-    console.log(cleanedUrl);
+    const apiResponse = await new Promise((resolve, reject) => {
+      const options = {
+        method: "GET",
+        hostname: RAPID_API_HOST,
+        path: `/dl?id=${videoId}`,
+        headers: {
+          "x-rapidapi-key": RAPID_API_KEY,
+          "x-rapidapi-host": RAPID_API_HOST,
+        },
+      };
 
-    const video = await downloadYouTubeVideo(cleanedUrl);
+      const req = https.request(options, (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          try {
+            const json = JSON.parse(Buffer.concat(chunks).toString());
+            resolve(json);
+          } catch (err) {
+            reject(new Error("Failed to parse API response"));
+          }
+        });
+      });
 
-    console.log("YouTube video response:", video);
+      req.on("error", reject);
+      req.end();
+    });
 
-    if (!video.video || video.video.length === 0) {
-      throw new Error("No video URL found in response.");
-    }
+    const downloadUrl = apiResponse?.formats?.[0]?.url;
+    if (!downloadUrl) throw new Error("No video URL found in formats.");
 
-    const videoUrl = video.video;
     const fileName = `${v4()}.mp4`;
-    const outputPath = `./${fileName}`;
+    const outputPath = path.join(fileName);
 
-    const response = await axios.get(videoUrl, {
+    const videoRes = await axios.get(downloadUrl, {
       responseType: "stream",
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "*/*",
-      },
-      maxRedirects: 5,
+      headers: { "User-Agent": "Mozilla/5.0" },
     });
 
     const writer = fs.createWriteStream(outputPath);
-    response.data.pipe(writer);
-
+    videoRes.data.pipe(writer);
     await new Promise((resolve, reject) => {
       writer.on("finish", resolve);
       writer.on("error", reject);
     });
 
-    const videoBuffer = fs.createReadStream(outputPath);
+    const videoStream = fs.createReadStream(outputPath);
     const s3Key = `test_videos/${fileName}`;
-    const videoData = await uploadToS3(videoBuffer, s3Key);
+    const uploadResult = await uploadToS3(videoStream, s3Key);
 
-    fs.unlink(outputPath, (err) => {
-      if (err) {
-        console.error("Error deleting the local file:", err);
-      } else {
-        console.log("Local file deleted successfully.");
-      }
-    });
-
-    return videoData;
+    fs.unlink(outputPath, () => {});
+    return uploadResult;
   } catch (error) {
-    console.error("Error extracting Youtube video:", error);
-    throw new Error("Error extracting Youtube video");
+    console.error("Error extracting YouTube video:", error);
+    throw new Error("YouTube download failed");
   }
 }
 
